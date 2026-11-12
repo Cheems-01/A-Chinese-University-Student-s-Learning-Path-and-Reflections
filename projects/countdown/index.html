@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f16">
+<title>倒计时</title>
+<style>
+  :root {
+    --bg: #0b0f16;
+    --card: #101826;
+    --card-2: #0d1420;
+    --line: rgba(255, 255, 255, 0.09);
+    --ink: #e8f0ee;
+    --muted: #8fa3b0;
+    --mint: #5ff0d0;
+    --amber: #ffc86b;
+    --red: #ff5f6d;
+    --mono: "Cascadia Mono", "Consolas", "SF Mono", ui-monospace, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { height: 100%; }
+
+  body {
+    margin: 0;
+    display: grid;
+    place-items: center;
+    padding: 28px 18px;
+    background:
+      radial-gradient(1100px 620px at 78% -12%, rgba(95, 240, 208, 0.10), transparent 60%),
+      radial-gradient(900px 520px at 12% 108%, rgba(255, 200, 107, 0.09), transparent 62%),
+      var(--bg);
+    color: var(--ink);
+    font-family: "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .app {
+    width: min(460px, 100%);
+    display: grid;
+    gap: 18px;
+  }
+
+  /* ── 顶部 ── */
+  .top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 0 4px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: baseline;
+    gap: 9px;
+    font-size: 13px;
+    letter-spacing: 0.16em;
+    color: var(--muted);
+  }
+
+  .brand b {
+    font-family: var(--mono);
+    font-size: 15px;
+    letter-spacing: 0.06em;
+    color: var(--mint);
+    font-weight: 600;
+  }
+
+  .sound {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 12px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--muted);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s, background 0.2s;
+  }
+
+  .sound:hover, .sound:focus-visible {
+    color: var(--ink);
+    border-color: rgba(95, 240, 208, 0.5);
+  }
+
+  .sound[aria-pressed="true"] { color: var(--mint); }
+
+  /* ── 圆环 ── */
+  .dial {
+    position: relative;
+    display: grid;
+    place-items: center;
+    justify-self: center;
+    width: min(318px, 82vw);
+    aspect-ratio: 1;
+  }
+
+  .dial svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+    overflow: visible;
+  }
+
+  .track { fill: none; stroke: rgba(255, 255, 255, 0.07); stroke-width: 10; }
+
+  .bar {
+    fill: none;
+    stroke: var(--mint);
+    stroke-width: 10;
+    stroke-linecap: round;
+    stroke-dasharray: 879.646;
+    stroke-dashoffset: 0;
+    filter: drop-shadow(0 0 9px rgba(95, 240, 208, 0.42));
+    transition: stroke 0.5s ease;
+  }
+
+  .dial.warn .bar { stroke: var(--amber); filter: drop-shadow(0 0 9px rgba(255, 200, 107, 0.42)); }
+  .dial.danger .bar { stroke: var(--red); filter: drop-shadow(0 0 11px rgba(255, 95, 109, 0.5)); }
+
+  .face {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    gap: 8px;
+    text-align: center;
+  }
+
+  .time {
+    font-family: "Segoe UI", "PingFang SC", system-ui, -apple-system, sans-serif;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    font-size: clamp(46px, 13.5vw, 62px);
+    line-height: 1;
+    letter-spacing: 0.015em;
+    color: var(--ink);
+  }
+
+  .state {
+    font-size: 12px;
+    letter-spacing: 0.22em;
+    color: var(--muted);
+    text-transform: uppercase;
+    min-height: 16px;
+  }
+
+  .dial.danger .state { color: var(--red); }
+  .dial.done .state { color: var(--mint); font-size: 13px; letter-spacing: 0.28em; }
+  .dial.done .track { stroke: rgba(95, 240, 208, 0.26); }
+  .dial.done .time { color: #b9ffe9; }
+
+  .dial.danger .time { animation: breathe 1s ease-in-out infinite; }
+
+  @keyframes breathe {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
+  }
+
+  /* ── 预设 ── */
+  .presets {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  .chip {
+    padding: 9px 10px;
+    text-align: center;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.02);
+    color: var(--muted);
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.18s;
+  }
+
+  .chip:hover, .chip:focus-visible {
+    color: var(--ink);
+    border-color: rgba(255, 255, 255, 0.25);
+    transform: translateY(-1px);
+  }
+
+  .chip[aria-pressed="true"] {
+    color: #06231d;
+    background: var(--mint);
+    border-color: var(--mint);
+    font-weight: 600;
+  }
+
+  .caption {
+    margin: 0 0 -12px;
+    padding-left: 4px;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: rgba(143, 163, 176, 0.8);
+  }
+
+  /* ── 自定义输入 ── */
+  .custom {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    padding: 16px;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012));
+  }
+
+  .field { display: grid; gap: 7px; }
+
+  .field label {
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  .field input {
+    width: 100%;
+    padding: 11px 4px;
+    border: 1px solid transparent;
+    border-radius: 11px;
+    background: var(--card-2);
+    color: var(--ink);
+    font-family: "Segoe UI", "PingFang SC", system-ui, sans-serif;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    font-size: 22px;
+    text-align: center;
+    outline: none;
+    transition: border-color 0.18s, background 0.18s;
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+
+  .field input::-webkit-outer-spin-button,
+  .field input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+  .field input:focus-visible {
+    border-color: rgba(95, 240, 208, 0.6);
+    background: #0b1622;
+  }
+
+  /* ── 按钮 ── */
+  .actions {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+  }
+
+  .primary {
+    padding: 15px 20px;
+    border: 0;
+    border-radius: 13px;
+    background: linear-gradient(180deg, #7ef7dd, #46d9b8);
+    color: #052b24;
+    font: inherit;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    box-shadow: 0 12px 30px rgba(70, 217, 184, 0.22);
+    transition: transform 0.14s, box-shadow 0.2s, opacity 0.2s;
+  }
+
+  .primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 16px 34px rgba(70, 217, 184, 0.3); }
+  .primary:active:not(:disabled) { transform: translateY(0) scale(0.995); }
+  .primary:disabled { opacity: 0.42; cursor: not-allowed; box-shadow: none; }
+
+  .ghost {
+    padding: 15px 18px;
+    border: 1px solid var(--line);
+    border-radius: 13px;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+    transition: color 0.18s, border-color 0.18s;
+  }
+
+  .ghost:hover, .ghost:focus-visible { color: var(--ink); border-color: rgba(255, 255, 255, 0.26); }
+
+  .hint {
+    text-align: center;
+    font-size: 12px;
+    color: rgba(143, 163, 176, 0.72);
+    letter-spacing: 0.04em;
+  }
+
+  .hint kbd {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 2px 6px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--muted);
+  }
+
+  /* 结束闪光 */
+  .flash {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    background: radial-gradient(circle at 50% 46%, rgba(95, 240, 208, 0.30), transparent 58%);
+  }
+
+  .flash.on { animation: flash 1.6s ease-out 2; }
+
+  @keyframes flash {
+    0% { opacity: 0; }
+    16% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  :focus-visible { outline: 2px solid var(--mint); outline-offset: 3px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.001s !important; transition-duration: 0.001s !important; }
+  }
+
+  @media (max-width: 420px) {
+    .app { gap: 18px; }
+    .custom { padding: 13px; gap: 8px; }
+    .field input { font-size: 19px; padding: 9px 2px; }
+    .primary { font-size: 15px; padding: 14px 16px; }
+    .hint { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="flash" id="flash" aria-hidden="true"></div>
+
+<main class="app">
+  <header class="top">
+    <div class="brand"><b>COUNTDOWN</b><span>倒计时</span></div>
+    <button class="sound" id="sound" type="button" aria-pressed="true" title="开关提示音">
+      <span id="soundIcon">♪</span><span id="soundText">提示音开</span>
+    </button>
+  </header>
+
+  <section class="dial" id="dial" aria-label="剩余时间">
+    <svg viewBox="0 0 320 320" aria-hidden="true">
+      <circle class="track" cx="160" cy="160" r="140"></circle>
+      <circle class="bar" id="bar" cx="160" cy="160" r="140"></circle>
+    </svg>
+    <div class="face">
+      <div class="time" id="time" role="timer" aria-live="off">00:05<span class="unit">:00</span></div>
+      <div class="state" id="state" aria-live="polite">等待开始</div>
+    </div>
+  </section>
+
+  <p class="caption">快捷时长</p>
+
+  <div class="presets" id="presets">
+    <button class="chip" type="button" data-sec="60">1 分钟</button>
+    <button class="chip" type="button" data-sec="180">3 分钟</button>
+    <button class="chip" type="button" data-sec="300">5 分钟</button>
+    <button class="chip" type="button" data-sec="600">10 分钟</button>
+    <button class="chip" type="button" data-sec="1500">25 分钟</button>
+    <button class="chip" type="button" data-sec="2700">45 分钟</button>
+  </div>
+
+  <div class="custom">
+    <div class="field">
+      <label for="h">小时</label>
+      <input id="h" type="number" min="0" max="99" step="1" inputmode="numeric" value="0">
+    </div>
+    <div class="field">
+      <label for="m">分钟</label>
+      <input id="m" type="number" min="0" max="59" step="1" inputmode="numeric" value="5">
+    </div>
+    <div class="field">
+      <label for="s">秒</label>
+      <input id="s" type="number" min="0" max="59" step="1" inputmode="numeric" value="0">
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="primary" id="toggle" type="button">开始倒计时</button>
+    <button class="ghost" id="reset" type="button">重置</button>
+  </div>
+
+  <p class="hint">
+    <kbd>空格</kbd> 开始 / 暂停 · <kbd>R</kbd> 重置 · 结束后按 <kbd>空格</kbd> 重新开始
+  </p>
+</main>
+
+<script>
+(function () {
+  "use strict";
+
+  var CIRC = 2 * Math.PI * 140;      // 圆环周长，与 CSS 里的 stroke-dasharray 对得上
+  var MAX_SEC = 99 * 3600 + 59 * 60 + 59;
+
+  var el = {
+    dial: document.getElementById("dial"),
+    bar: document.getElementById("bar"),
+    time: document.getElementById("time"),
+    state: document.getElementById("state"),
+    h: document.getElementById("h"),
+    m: document.getElementById("m"),
+    s: document.getElementById("s"),
+    toggle: document.getElementById("toggle"),
+    reset: document.getElementById("reset"),
+    sound: document.getElementById("sound"),
+    soundIcon: document.getElementById("soundIcon"),
+    soundText: document.getElementById("soundText"),
+    presets: document.getElementById("presets"),
+    flash: document.getElementById("flash")
+  };
+
+  var state = {
+    total: 300,       // 本轮总秒数（决定圆环基准）
+    remain: 300,      // 剩余秒数（浮点，用于平滑动画）
+    running: false,
+    endAt: 0,
+    raf: 0,
+    sound: true,
+    done: false
+  };
+
+  var wakeLock = null;
+  var LS_KEY = "countdown.last";
+
+  // ── 工具 ──
+  function clampInt(v, min, max) {
+    v = parseInt(v, 10);
+    if (!isFinite(v)) v = 0;
+    return Math.min(max, Math.max(min, v));
+  }
+
+  function pad(n) { return n < 10 ? "0" + n : String(n); }
+
+  function split(sec) {
+    sec = Math.max(0, Math.ceil(sec));
+    var h = Math.floor(sec / 3600);
+    var m = Math.floor((sec % 3600) / 60);
+    var s = sec % 60;
+    return { h: h, m: m, s: s };
+  }
+
+  function format(sec) {
+    var p = split(sec);
+    var head = p.h > 0 ? pad(p.h) + ":" + pad(p.m) : pad(p.m);
+    return { head: head, tail: ":" + pad(p.s), p: p };
+  }
+
+  function fromInputs() {
+    return clampInt(el.h.value, 0, 99) * 3600
+         + clampInt(el.m.value, 0, 59) * 60
+         + clampInt(el.s.value, 0, 59);
+  }
+
+  function toInputs(sec) {
+    var p = split(sec);
+    el.h.value = p.h;
+    el.m.value = p.m;
+    el.s.value = p.s;
+  }
+
+  // ── 渲染 ──
+  function render() {
+    var f = format(state.remain);
+    el.time.textContent = f.head + f.tail;
+
+    var ratio = state.total > 0 ? Math.min(1, Math.max(0, state.remain / state.total)) : 0;
+    el.bar.style.strokeDashoffset = String(CIRC * (1 - ratio));
+
+    var left = state.remain;
+    el.dial.classList.toggle("warn", !state.done && left <= state.total * 0.25 && left > 10);
+    el.dial.classList.toggle("danger", !state.done && left <= 10 && left > 0);
+    el.dial.classList.toggle("done", state.done);
+
+    document.title = state.running || state.done
+      ? (state.done ? "时间到！" : f.head + f.tail + " · 倒计时")
+      : "倒计时";
+  }
+
+  function setStateText(text) { el.state.textContent = text; }
+
+  function markPreset(sec) {
+    var chips = el.presets.querySelectorAll(".chip");
+    for (var i = 0; i < chips.length; i++) {
+      chips[i].setAttribute("aria-pressed", String(Number(chips[i].dataset.sec) === sec));
+    }
+  }
+
+  // ── 计时 ──
+  function nowSec() { return Date.now() / 1000; }
+
+  function loop() {
+    if (!state.running) return;
+    state.remain = Math.max(0, state.endAt - nowSec());
+    render();
+    if (state.remain <= 0) { finish(); return; }
+    state.raf = requestAnimationFrame(loop);
+  }
+
+  function start() {
+    if (state.done) reset(true);
+
+    if (!state.running) {
+      if (state.remain <= 0) state.remain = fromInputs();
+      if (state.remain <= 0) return;
+
+      // 只在「从满格开始」时记录总时长，暂停后继续不改基准
+      if (state.remain >= state.total - 0.05) state.total = state.remain;
+
+      state.running = true;
+      state.done = false;
+      state.endAt = nowSec() + state.remain;
+      setStateText("倒计时中");
+      el.toggle.textContent = "暂停";
+      el.flash.classList.remove("on");
+      lockScreen(true);
+      state.raf = requestAnimationFrame(loop);
+      render();
+    }
+  }
+
+  function pause() {
+    if (!state.running) return;
+    state.remain = Math.max(0, state.endAt - nowSec());
+    state.running = false;
+    cancelAnimationFrame(state.raf);
+    setStateText("已暂停");
+    el.toggle.textContent = "继续";
+    lockScreen(false);
+    render();
+  }
+
+  function finish() {
+    state.running = false;
+    state.done = true;
+    state.remain = 0;
+    cancelAnimationFrame(state.raf);
+    setStateText("时间到");
+    el.toggle.textContent = "重新开始";
+    el.flash.classList.add("on");
+    setTimeout(function () { el.flash.classList.remove("on"); }, 3400);
+    lockScreen(false);
+    render();
+    chime();
+    if (navigator.vibrate) { try { navigator.vibrate([200, 120, 200]); } catch (e) {} }
+  }
+
+  function saveLast(sec) {
+    try { localStorage.setItem(LS_KEY, String(sec)); } catch (e) { /* 隐私模式就算了 */ }
+  }
+
+  function loadLast() {
+    try {
+      var v = parseInt(localStorage.getItem(LS_KEY) || "0", 10);
+      if (isFinite(v) && v > 0 && v <= MAX_SEC) toInputs(v);
+    } catch (e) { /* 读不到就用默认值 */ }
+  }
+
+  function reset(silent) {
+    state.running = false;
+    state.done = false;
+    cancelAnimationFrame(state.raf);
+    state.total = Math.max(1, fromInputs());
+    state.remain = state.total;
+    saveLast(state.total);
+    el.toggle.textContent = "开始倒计时";
+    if (!silent) setStateText("等待开始");
+    el.flash.classList.remove("on");
+    lockScreen(false);
+    render();
+  }
+
+  // ── 声音（WebAudio，无需外部文件）──
+  var audioCtx = null;
+
+  function chime() {
+    if (!state.sound) return;
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === "suspended") audioCtx.resume();
+      [0, 0.22, 0.44].forEach(function (offset, i) {
+        var t0 = audioCtx.currentTime + offset;
+        var osc = audioCtx.createOscillator();
+        var gain = audioCtx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(i === 2 ? 1046.5 : 880, t0);
+        gain.gain.setValueAtTime(0.0001, t0);
+        gain.gain.exponentialRampToValueAtTime(0.22, t0 + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.5);
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.start(t0);
+        osc.stop(t0 + 0.55);
+      });
+    } catch (e) { /* 音频不可用就算了 */ }
+  }
+
+  // ── 亮屏锁（手机上看计时器不熄屏）──
+  function lockScreen(on) {
+    if (!("wakeLock" in navigator)) return;
+    if (on) {
+      navigator.wakeLock.request("screen").then(function (lock) {
+        wakeLock = lock;
+        lock.addEventListener("release", function () { wakeLock = null; });
+      }).catch(function () {});
+    } else if (wakeLock) {
+      wakeLock.release().catch(function () {});
+      wakeLock = null;
+    }
+  }
+
+  // ── 事件 ──
+  el.toggle.addEventListener("click", function () {
+    if (state.running) pause();
+    else start();
+  });
+
+  el.reset.addEventListener("click", function () { reset(false); });
+
+  [el.h, el.m, el.s].forEach(function (input) {
+    input.addEventListener("input", function () {
+      if (state.running) return;
+      markPreset(-1);
+      var total = fromInputs();
+      state.total = Math.max(1, total);
+      state.remain = total;
+      state.done = false;
+      el.dial.classList.remove("done");
+      setStateText(total > 0 ? "等待开始" : "请设置时间");
+      el.toggle.textContent = "开始倒计时";
+      render();
+    });
+    input.addEventListener("blur", function () {
+      var max = input === el.h ? 99 : 59;
+      input.value = clampInt(input.value, 0, max);
+      if (!state.running) reset(false);
+    });
+  });
+
+  el.presets.addEventListener("click", function (ev) {
+    var chip = ev.target.closest(".chip");
+    if (!chip) return;
+    var sec = parseInt(chip.dataset.sec, 10);
+    toInputs(sec);
+    markPreset(sec);
+    reset(false);
+    start();
+    ev.preventDefault();
+  });
+
+  el.sound.addEventListener("click", function () {
+    state.sound = !state.sound;
+    el.sound.setAttribute("aria-pressed", String(state.sound));
+    el.soundIcon.textContent = state.sound ? "♪" : "×";
+    el.soundText.textContent = state.sound ? "提示音开" : "提示音关";
+  });
+
+  document.addEventListener("keydown", function (ev) {
+    var tag = (ev.target && ev.target.tagName) || "";
+    if (tag === "INPUT" || tag === "TEXTAREA") return;
+
+    if (ev.code === "Space") {
+      ev.preventDefault();
+      if (state.running) pause();
+      else start();
+    } else if (ev.key === "r" || ev.key === "R") {
+      ev.preventDefault();
+      reset(false);
+    }
+  });
+
+  // ── 启动 ──
+  el.bar.style.strokeDasharray = String(CIRC);
+  loadLast();
+  reset(false);
+
+  // 给无头浏览器 / 自动化用的钩子
+  window.TIMER = {
+    start: start,
+    pause: pause,
+    reset: reset,
+    set: function (sec) { toInputs(Math.max(0, Math.min(MAX_SEC, Math.round(sec)))); reset(false); },
+    state: function () {
+      return {
+        total: state.total,
+        remain: state.remain,
+        running: state.running,
+        done: state.done,
+        text: el.time.textContent,
+        label: el.state.textContent
+      };
+    }
+  };
+})();
+</script>
+</body>
+</html>
