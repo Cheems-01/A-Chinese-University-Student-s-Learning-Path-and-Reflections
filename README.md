@@ -125,6 +125,38 @@ CHM 手册乱码，干脆解包成 HTML，自己写了个中文入口页，十�
 
 今天还聊了不少别的东西，从"AI 是不是概率模型"，到"agent 到底怎么操控电脑"，最后落到一句：把握眼前。
 
+## 2026.11.26
+
+今天第一次自己写代码。
+
+早上先搞明白 main.c 底下那一长串文件是什么——原来是 `#include` 的依赖树，不是加进工程的文件。然后自己翻手册找 RCC 和 GPIO 的函数（`RCC_APB2PeriphClockCmd`、`GPIO_Init`），一个参数一个参数地对着抄。
+
+写错了七八遍：把宏当函数调用、语句写到函数外面、参数位置写类型名、用了不存在的 `GPIO_Pin_Source0` 家族，还自己手抄了一遍 `#define`。每次都被指出来，但没人直接给我完整代码，只给个骨架让我填。
+
+最后跑通了：
+
+```c
+RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOC, ENABLE);
+gpio.GPIO_Pin   = GPIO_Pin_13;
+gpio.GPIO_Mode  = GPIO_Mode_Out_PP;
+gpio.GPIO_Speed = GPIO_Speed_2MHz;
+GPIO_Init(GPIOC, &gpio);
+for (;;) {
+    GPIO_SetBits(GPIOC, GPIO_Pin_13);
+    delay_loop(time);
+    GPIO_ResetBits(GPIOC, GPIO_Pin_13);
+    delay_loop(time);
+}
+```
+
+延时是自己估的：把循环编出来看反汇编，一圈大概 14 个周期，2500000 圈差不多 0.5 秒。原来写的 200000 只有 39 毫秒，13 Hz，眼睛看着就像没亮。
+
+最值钱的一个坑：我抽了个 `delay_loop(uint32_t n)`，结果循环条件里写的是宏 `N`，所以传 0 进去照样延时半秒。搞明白了「宏在编译前就被替换掉、参数在运行时才生效」是两条时间线，这个以前一直糊里糊涂。
+
+今天还定了一件事：以后自己写，不让人代写。看别人写十遍，不如自己写错三遍。
+
+晚上把点灯代码和智能车的控制代码都归档到 GitHub 了，现在仓库分成 TC264 和 STM32 两块，不再只是智能车了。
+
 ## 小项目
 
 - [倒计时](projects/countdown/) —— 单文件网页倒计时器。可自定义时分秒、圆环进度、快捷键控制、结束提示音，双击 HTML 就能用。
